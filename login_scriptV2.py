@@ -4,6 +4,7 @@ import pandas as pd
 import time
 import ctypes
 import logging
+import traceback
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
@@ -12,6 +13,33 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.keys import Keys
 from logging.handlers import RotatingFileHandler
+
+def refrescar_detalle_programacion():
+    try:
+        # Espera a que el botón de "Cancelar" esté presente y sea clickeable
+        cancelar_button = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarDetProgramacionPopUp"))
+        )
+        time.sleep(1)
+        cancelar_button.click()
+        time.sleep(1)
+        logging.info("Botón 'Cancelar' presionado.")
+    except Exception as e:
+        logging.error("Error al hacer clic en el botón 'Cancelar':", e)
+
+    try:
+        # Espera adicional para asegurar que el botón esté cargado
+        time.sleep(2)
+        
+        # Desplazar a la vista y hacer clic en el botón "Crear detalle" por su ID
+        crear_detalle_button = WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_grdDatosProgramacion_cell0_7_btnNuevoDetProgramacion_0"))
+        )
+        driver.execute_script("arguments[0].scrollIntoView(true);", crear_detalle_button)
+        WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_grdDatosProgramacion_cell0_7_btnNuevoDetProgramacion_0"))).click()
+        logging.info("Botón 'Crear detalle' presionado exitosamente.")
+    except Exception as e:
+        logging.error("Error al hacer clic en el botón 'Crear detalle':", e)
 
 # Mostrar mensaje de finalización
 def mostrar_mensaje_exito(mensaje, titulo, archivo_ruta):
@@ -26,7 +54,7 @@ def mostrar_mensaje_exito(mensaje, titulo, archivo_ruta):
 # Definir el método para volver a la página de "Programación de Cortometrajes"
 def volver_a_programacion_cortometrajes():
     # Hacer clic en el enlace "Programación de Cortometrajes" con desplazamiento previo
-    time.sleep(1)
+    ##time.sleep(1)
     try:
         programacion_cortometrajes_link = WebDriverWait(driver, 20).until(
             EC.element_to_be_clickable((By.XPATH, "//a[@href='/frm/peliculas/frmLstPEL_ENC_PROGRAMACION_CORTOS.aspx']"))
@@ -38,6 +66,122 @@ def volver_a_programacion_cortometrajes():
         logging.error(f"Error al hacer clic en Programación de Cortometrajes: {e}")
         logging.exception("Error al hacer clic en Programación de Cortometrajes:")
 
+def validar_asignacion_fechas():
+    try:
+        error_message_element = WebDriverWait(driver, 5).until(
+        EC.visibility_of_element_located((By.ID, "ContentPlaceHolder1_lblErrorTab_3"))
+        )
+        error_message = error_message_element.text
+        if "No puede cargar fecha de inicio y fin por fuera del rango del mes y año de beneficio" in error_message:
+            return False
+        elif "La fecha final no puede ser menor de 8 dias continuos"  in error_message:   
+            return False
+        else:
+            return True    
+    except Exception as e:
+        logging.info("Botón Asignar Fechas presionado.")
+        return True
+
+def limpiar():
+    try:
+        xpath_checkbox_select_all = "//input[@id='ContentPlaceHolder1_chkSeleccionarTodo' and @type='checkbox']"
+        checkbox_select_all = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.XPATH, xpath_checkbox_select_all))
+        )
+        logging.info("'Seleccionar todos' está presente.")
+
+        # Verificar si el checkbox está marcado
+        is_checked = driver.execute_script("return arguments[0].checked;", checkbox_select_all)
+        time.sleep(1)
+        if is_checked:
+            logging.info("El checkbox 'Seleccionar todos' está marcado. Procediendo a desmarcarlo.")
+            checkbox_select_all.click()
+            time.sleep(1)
+            logging.info("Checkbox 'Seleccionar todos' ahora está desmarcado.")
+        else:
+            logging.info("El checkbox 'Seleccionar todos' ya estaba desmarcado.")
+    except Exception as e:
+        logging.error(f"Error al verificar el estado de 'Seleccionar todos': {e}")
+        logging.error(f"Detalles del error: {traceback.format_exc()}")
+        return False
+
+    try:
+        select_element = WebDriverWait(driver, 20).until(
+            EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_cmbComplejo"))
+        )
+        select = Select(select_element)
+        try:
+            select.select_by_value("-1")  # Cambia id_complejo por el valor que corresponda si es necesario
+            time.sleep(1)
+        except:
+            select.select_by_visible_text("Seleccione")
+            time.sleep(1)
+    except Exception as e:
+        logging.error(f"Error al seleccionar la opción SELECCIONE en el menú desplegable: {e}")
+        return False
+    
+    try:
+        fecha_inicio_input = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaInicio"))
+        )
+        fecha_inicio_input.clear()  # Limpia el campo antes de ingresar la fecha
+    except Exception as e:
+        logging.error(f"Error al limpiar la fecha de inicio: {str(e)}")
+        return False
+   
+    try:
+        fecha_fin_input = WebDriverWait(driver, 10).until(
+            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaFin"))
+        )
+        fecha_fin_input.clear()  # Limpia el campo antes de ingresar la fecha
+        return True
+    except Exception as e:
+        logging.error(f"Error al ingresar la fecha final: {str(e)}")
+        return False        
+
+def asignar_fechas():
+    # Hacer clic en "Asignar Fechas"
+    try:
+        asignar_fechas_button = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnAgregarFechas"))
+        )
+        asignar_fechas_button.click()
+        time.sleep(2)
+        logging.info("Botón Asignar Fechas presionado.")
+        return True
+    except Exception as e:
+        logging.info("Asignación de fechas:", e)
+        return False        
+
+def guardar_continuar():    
+    # Hacer clic en "Guardar y continuar"
+    try:
+        guardar_continuar_button = WebDriverWait(driver, 20).until(
+            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnGuardarDetProgramacion"))
+        )
+        guardar_continuar_button.click()
+        time.sleep(2)
+        logging.info("Botón Guardar y continuar presionado.")
+        return True
+    except Exception as e:
+        logging.info("Guardar programacion:", e)
+        return False 
+
+def confimar():
+    try:
+        WebDriverWait(driver, 5).until(
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".confirm"))
+            ).click()
+        time.sleep(2)
+        logging.info("Programacion guardada")
+        return True        
+    except Exception as e:
+        logging.info("Guardar programacion:", e)
+        return False        
+        
+    
+
+    
 if __name__ == "__main__":
     # Obtener la ruta del archivo actual
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -105,7 +249,7 @@ if __name__ == "__main__":
             EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'SIREC')]"))
         )
         sirec_menu.click()
-        time.sleep(1)
+        ##time.sleep(1)
     except Exception as e:
         logging.error(f"Error al localizar el menú de SIREC: {e}")
 
@@ -115,7 +259,7 @@ if __name__ == "__main__":
             EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Programación de Cortometrajes')]"))
         )
         programacion_menu.click()
-        time.sleep(1)
+        ##time.sleep(1)
     except Exception as e:
         logging.error(f"Error al localizar el menú de Programación de Cortometrajes: {e}")
 
@@ -163,30 +307,24 @@ if __name__ == "__main__":
     if 'Estado' not in df.columns:
         df['Estado'] = ""
 
-    # Leer el archivo y especificar que la columna 'Acta' sea leída como texto
-    df = pd.read_excel(file_path, sheet_name=sheet_name, dtype={'ACTA': str})
-    df = pd.read_excel(file_path, sheet_name=sheet_name, dtype={'ANIO_BENEFICIO': str})
-    df = pd.read_excel(file_path, sheet_name=sheet_name, dtype={'CERTIFICADO': str})
-    df = pd.read_excel(file_path, sheet_name=sheet_name, dtype={'ID_SALA': str})
-
     # Conjunto de índices procesados
     indices_procesados = set()
 
     # Recorrer cada fila del archivo Excel y llenar el formulario
     for index, row in df.iterrows():
-
-        # Registrar el inicio del tiempo de la iteración
         start_time = time.time()
-
         if index in indices_procesados:
             # Si el índice ya fue procesado, continuar con el siguiente
             logging.info(f"Índice {index} ya procesado. Saltando...")
             end_time = time.time()
             duration = end_time - start_time
             df.at[index, 'Tiempo'] = duration
-            logging.info(f"Tiempo tomado para la fila {index + 1}: {duration:.2f} segundos")
+            logging.info(f"Tiempo tomado para la fila {index}: {duration:.2f} segundos")
             df.at[index, 'Estado'] = "Insertado"
             continue  # Omitir si ya fue procesado
+
+        volver_a_programacion_cortometrajes()
+        
 
         exhibidor = row['NOMBRE_EXHIBIDOR']
         id_exhibidor = row['ID_EXHIBIDOR']
@@ -231,14 +369,29 @@ if __name__ == "__main__":
 
         try:
             # Buscar el campo de búsqueda para ingresar el nombre del exhibidor
-            time.sleep(1)
+            ##time.sleep(1)
             search_field = WebDriverWait(driver, 20).until(
                 EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='Buscar']"))
             )
             search_field.send_keys(exhibidor)
 
+            ##time.sleep(1)
+            tabla = WebDriverWait(driver, 10).until(
+                EC.presence_of_element_located((By.ID, "grdDatos"))
+            )
+
+            # Buscar si existe un <td> con el texto 'Sin registros'
+            sin_registros_element = tabla.find_elements(By.XPATH, ".//td[contains(text(), 'Sin registros')]")
+
+            # Verificar si el elemento está presente y es visible
+            if sin_registros_element and sin_registros_element[0].is_displayed():
+                error_message = "Sin registros"
+                logging.error(f"Error detectado: {error_message}")
+                df.at[index, 'Estado'] = f"Error: {error_message}"  # Guardar el error en el DataFrame
+                continue  # Pasar al siguiente registro
+
             # Esperar y hacer clic en el botón "Editar"
-            time.sleep(1)
+            ##time.sleep(1)
             # Elimina los espacios en blanco al inicio y al final del nombre del exhibidor
             exhibidor = exhibidor.strip()
 
@@ -255,73 +408,108 @@ if __name__ == "__main__":
             editar_button.click()
 
             # Navegar a Datos Programación
-            time.sleep(1)
+            #time.sleep(1)
             WebDriverWait(driver, 10).until(
                 EC.element_to_be_clickable((By.LINK_TEXT, "Datos Programación"))
             ).click()
             logging.info("Navegando a Datos Programación")
 
-            time.sleep(1)
+            #time.sleep(1)
             driver.find_element(By.ID, "ContentPlaceHolder1_btnCrearProgramacion").click()
             logging.info("Botón Crear Programación presionado")
 
             # Ingresar el número de acta
-            time.sleep(1)
+            #time.sleep(1)
             numero_acta = str(numero_acta)
             acta_field = driver.find_element(By.ID, "ContentPlaceHolder1_txtNroActa")
             acta_field.send_keys("00"+numero_acta)
             # Simular Enter para mover el foco
             acta_field.send_keys(Keys.ENTER)
-            logging.info("Número de acta ingresado")
+            logging.info(f"Número de acta ingresado: 00{numero_acta}")
+            #time.sleep(1)
+            # Esperar si el elemento de error aparece
+
+            elementos = driver.find_elements(By.ID, "ContentPlaceHolder1_lblErrorTab_2")
+            if elementos and elementos[0].is_displayed():
+                error_message_element = WebDriverWait(driver, 5).until(
+                    EC.visibility_of_element_located((By.ID, "ContentPlaceHolder1_lblErrorTab_2"))
+                )
+                error_message = error_message_element.text
+                if "No existe pelicula para esa acta" in error_message:
+                    cancelar_button = WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
+                    )
+                    cancelar_button.click()
+                    logging.error(f"Error detectado tras ingresar el número de acta: {error_message}")
+                    df.at[index, 'Estado'] = f"Error: {error_message}"  # Guardar el error en el DataFrame
+                    continue  # Pasar al siguiente registro
 
             # Seleccionar año y mes
-            time.sleep(1)
+            #time.sleep(1)
             # Asegurarse de que anio_beneficio sea una cadena
             anio_beneficio = str(anio_beneficio)
             dropdown_anio = driver.find_element(By.ID, "ddlAnio")
             dropdown_anio.find_element(By.XPATH, "//option[. = '" + anio_beneficio + "']").click()
             logging.info("Año de beneficio seleccionado")
 
-            time.sleep(1)
+            #time.sleep(1)
             dropdown_mes = driver.find_element(By.ID, "drpMesBeneficio")
             dropdown_mes.find_element(By.XPATH, "//option[. = '" + mes_beneficio + "']").click()
             logging.info("Mes de beneficio seleccionado")
             
-            time.sleep(1)
+            #time.sleep(1)
             driver.find_element(By.ID, "ContentPlaceHolder1_btnGuardarYsalir").click()
             logging.info("Botón Guardar y salir presionado")
 
             # Esperar a que aparezca el mensaje de error o el mensaje de éxito
-            time.sleep(1)
+            time.sleep(2)
             try:
-                error_message_element = WebDriverWait(driver, 5).until(
+                # Verificar si el elemento está presente
+                elementos = driver.find_elements(By.CSS_SELECTOR, ".confirm")
+                if elementos:
+                    # Si la lista no está vacía, significa que el elemento está presente
+                    logging.info("Cargue de acta exitoso")
+                    WebDriverWait(driver, 5).until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".confirm"))
+                    ).click()
+                else:
+                    error_message_element = WebDriverWait(driver, 5).until(
                     EC.visibility_of_element_located((By.ID, "ContentPlaceHolder1_lblErrorProgramacion"))
-                )
-                error_message = error_message_element.text
-                if "Solo puede crear una programación por periodo" in error_message:
-                    cancelar_button = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
                     )
-                    cancelar_button.click()
-                    logging.error("Error detectado: Acta ya existente. Cancelando la operación.")
-                if "Ya exhibio esta acta, solo puede exhibir esta acta maximo 1 vez" in error_message:
-                    cancelar_button = WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
-                    )
-                    cancelar_button.click()
-                    logging.error("Error detectado: Acta ya exhibida máximo una vez. Cancelando y avanzando al siguiente registro.")
-            
-                    # Marcar el error en la columna Estado y continuar con el próximo registro
-                    df.at[index, 'Estado'] = f"Error: {error_message}"
-                    volver_a_programacion_cortometrajes()
-                    continue  # Pasa al siguiente registro en el bucle principal
+                    error_message = error_message_element.text
+                    if "Nº Acta es obligatorio" in error_message:
+                        cancelar_button = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
+                        )
+                        cancelar_button.click()
+                        logging.error(error_message)
+                        df.at[index, 'Estado'] = f"Error: {error_message}"
+                        continue  # Pasa al siguiente registro en el bucle principal
+                    if "Debe seleccionar un mes de beneficio" in error_message:
+                        cancelar_button = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
+                        )
+                        cancelar_button.click()
+                        logging.error(error_message)
+                        df.at[index, 'Estado'] = f"Error: {error_message}"
+                        continue  # Pasa al siguiente registro en el bucle principal
+                    if "Solo puede crear una programación por periodo" in error_message:
+                        cancelar_button = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
+                        )
+                        cancelar_button.click()
+                        logging.warning(error_message)
+                    if "Ya exhibio esta acta, solo puede exhibir esta acta maximo 1 vez" in error_message:
+                        cancelar_button = WebDriverWait(driver, 5).until(
+                            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
+                        )
+                        cancelar_button.click()
+                        logging.warning(error_message)
             except Exception as e:
-                # Si no se encuentra el mensaje de error, asumimos que todo está correcto
-                logging.info("No se encontró mensaje de error; asumiendo que se guardó correctamente.")
-                WebDriverWait(driver, 5).until(
-                    EC.element_to_be_clickable((By.CSS_SELECTOR, ".confirm"))
-                ).click()
-                logging.info("Acta Guardada Exitosamente.")
+                logging.error(f"Error al guardar el acta: {e}")
+                df.at[index, 'Estado'] = f"Error: {str(e)}"
+                volver_a_programacion_cortometrajes()
+                continue  # Pasa al siguiente registro en el bucle principal
 
             try:
                 # Localizar el campo de entrada por su ID y enviar el valor "00"+numero_acta
@@ -336,7 +524,7 @@ if __name__ == "__main__":
 
             try:
                 # Espera adicional para asegurar que el botón esté cargado
-                time.sleep(1)
+                time.sleep(2)
                 
                 # Desplazar a la vista y hacer clic en el botón "Crear detalle" por su ID
                 crear_detalle_button = WebDriverWait(driver, 10).until(
@@ -348,77 +536,88 @@ if __name__ == "__main__":
             except Exception as e:
                 logging.error("Error al hacer clic en el botón 'Crear detalle':", e)        
 
-
+            bandera = 0
             # Agrupar por ID_EXHIBIDOR y luego iterar por cada ID_COMPLEJO asociado
             grupo_exhibidor = df[df['ID_EXHIBIDOR'] == id_exhibidor]  # Filtrar el grupo del exhibidor actual
-
+            logging.info(f"Contenido de grupo_exhibidor ordenado por 'ITEM':\n{grupo_exhibidor[['NOMBRE_COMPLEJO']]}")
             for id_complejo_actual, grupo_complejo in grupo_exhibidor.groupby('ID_COMPLEJO'):
                 logging.info(f"Procesando complejo {id_complejo_actual} del exhibidor {id_exhibidor}...")
-                try:
-                    # Espera a que el elemento <select> esté presente
-                    select_element = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_cmbComplejo"))
-                    )
+                logging.info(f"Contenido de grupo_complejo:\n{grupo_complejo[['NOMBRE_COMPLEJO']]}")
+                
+                # Filtrar el grupo de salas por el mismo ID_COMPLEJO
+                grupo_complejo_actual = df[df['ID_COMPLEJO'] == id_complejo_actual]
+                fechas_iniciales_iguales = grupo_complejo_actual['FECHA_EXHI_INICIAL'].nunique() == 1
+                fechas_finales_iguales = grupo_complejo_actual['FECHA_EXHI_FINAL'].nunique() == 1
+                mas_de_una_fila = len(grupo_complejo_actual) > 1
 
-                    # Inicializa el objeto Select
-                    select = Select(select_element)
-
-                    # Intentar seleccionar por valor
+                if fechas_iniciales_iguales and fechas_finales_iguales and mas_de_una_fila:
+                    # Seleccionar todos si las fechas son iguales para el mismo complejo
+                    nombre_complejo_actual = grupo_complejo_actual['NOMBRE_COMPLEJO'].iloc[0]  # O usar .unique()[0
+                    logging.info(f"Las fechas son iguales (ID_COMPLEJO = {id_complejo_actual}): {nombre_complejo_actual}")
                     try:
-                        select.select_by_value(id_complejo_actual)  # Cambia id_complejo por el valor que corresponda si es necesario
-                        logging.info("Opción seleccionada por valor correctamente.")
-                    except:
-                        # Si falla, intenta seleccionar por texto visible
-                        select.select_by_visible_text(grupo_complejo.iloc[0]['NOMBRE_COMPLEJO'])
-                        logging.info("Opción seleccionada por texto visible correctamente.")
+                        # Espera a que el elemento <select> esté presente
+                        select_element = WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_cmbComplejo"))
+                        )
 
-                except Exception as e:
-                    logging.error("Error al seleccionar la opción en el menú desplegable:", e)
+                        # Inicializa el objeto Select
+                        select = Select(select_element)
 
-                # Ingresar la fecha en el campo de Fecha de Inicio
-                time.sleep(1)
-                try:
-                    fecha_inicio_input = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaInicio"))
-                    )
-                    fecha_inicio_input.clear()  # Limpia el campo antes de ingresar la fecha
-                    fecha_inicio_input.click()  # Hacer clic en el campo por si hay alguna acción de apertura de calendario
-                    fecha_inicio_input.send_keys(fecha_exhi_inicial.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
-                    time.sleep(1)
-                    fecha_inicio_input.send_keys(Keys.ENTER)
-                    logging.info("Fecha de inicio ingresada correctamente.")
-                except Exception as e:
-                    logging.error(f"Error al ingresar la fecha de inicio: {str(e)}")
-                    df.at[index, 'Estado'] = f"Error: {str(e)}"  # Registrar el error en el DataFrame
-                    logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
-                    continue  # Pasar al siguiente elemento del bucle
+                        # Intentar seleccionar por valor
+                        try:
+                            select.select_by_value(str(id_complejo_actual))  # Cambia id_complejo por el valor que corresponda si es necesario
+                            time.sleep(2)
+                            logging.info(f"Opción seleccionada por valor correctamente {id_complejo_actual} del exhibidor {id_exhibidor}...")
+                        except:
+                            # Si falla, intenta seleccionar por texto visible
+                            logging.info(f"Seleccionando por texto visible: {nombre_complejo_actual}")
+                            select.select_by_visible_text(nombre_complejo_actual)
+                            time.sleep(2)
+                            logging.info("Opción seleccionada por texto visible correctamente.")
+
+                    except Exception as e:
+                        logging.error(f"Error al seleccionar la opción en el menú desplegable: {e}")
+                        logging.error(f"Error index {index} NO procesado - No Selecciono complejo .")
+                        df.at[index, 'Estado'] = f"Error index {index} NO procesado - No Selecciono complejo ."
+                        bandera = 0
+                        continue  # Pasa al siguiente registro en el bucle principal
+
+                    # Ingresar la fecha en el campo de Fecha de Inicio
+                    try:
+                        fecha_inicio_input = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaInicio"))
+                        )
+                        fecha_inicio_input.clear()  # Limpia el campo antes de ingresar la fecha
+                        time.sleep(1)
+                        fecha_inicio_input.send_keys(fecha_exhi_inicial.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
+                        fecha_inicio_input.send_keys(Keys.ENTER)
+                        logging.info("Fecha de inicio ingresada correctamente.")
+                    except Exception as e:
+                        logging.error(f"Error al ingresar la fecha de inicio: {str(e)}")
+                        df.at[index, 'Estado'] = f"Error al ingresar la fecha de inicio: {str(e)}"  # Registrar el error en el DataFrame
+                        logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                        bandera=0
+                        continue  # Pasar al siguiente elemento del bucle
 
 
-                # Ingresar la fecha en el campo de Fecha de Fin
-                time.sleep(1)
-                try:
-                    fecha_fin_input = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaFin"))
-                    )
-                    fecha_fin_input.clear()  # Limpia el campo antes de ingresar la fecha
-                    fecha_fin_input.click()  # Hacer clic en el campo para asegurarse de que esté en foco
-                    fecha_fin_input.send_keys(fecha_exhi_final.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
-                    time.sleep(1)
-                    fecha_fin_input.send_keys(Keys.ENTER)
-                    logging.info("Fecha de fin ingresada correctamente.")
-                except Exception as e:
-                    logging.error("Error al ingresar la fecha de fin:", e)
-
-                try:
-
-                    # Filtrar el grupo de salas por el mismo ID_COMPLEJO
-                    grupo_complejo = df[df['ID_COMPLEJO'] == id_complejo_actual]
-                    fechas_iniciales_iguales = grupo_complejo['FECHA_EXHI_INICIAL'].nunique() == 1
-                    fechas_finales_iguales = grupo_complejo['FECHA_EXHI_FINAL'].nunique() == 1
-
-                    if fechas_iniciales_iguales and fechas_finales_iguales:
-                        # Seleccionar todos si las fechas son iguales para el mismo complejo
-                        logging.info(f"Aplicando 'Seleccionar todos' para el complejo {grupo_complejo.iloc[0]['NOMBRE_COMPLEJO']}...")
+                    # Ingresar la fecha en el campo de Fecha de Fin
+                    #time.sleep(1)
+                    try:
+                        fecha_fin_input = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaFin"))
+                        )
+                        fecha_fin_input.clear()  # Limpia el campo antes de ingresar la fecha
+                        time.sleep(1)
+                        fecha_fin_input.send_keys(fecha_exhi_final.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
+                        fecha_fin_input.send_keys(Keys.ENTER)
+                        logging.info("Fecha de fin ingresada correctamente.")
+                    except Exception as e:
+                        logging.error(f"Error al ingresar la fecha final: {str(e)}")
+                        df.at[index, 'Estado'] = f"Error al ingresar la fecha final: {str(e)}"  # Registrar el error en el DataFrame
+                        logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                        bandera=0
+                        continue  # Pasar al siguiente elemento del bucle
+                    try:
                         # Construir el XPath como una cadena
                         xpath_checkbox = "//input[@id='ContentPlaceHolder1_chkSeleccionarTodo' and @type='checkbox']"
 
@@ -428,121 +627,214 @@ if __name__ == "__main__":
                             EC.element_to_be_clickable((By.XPATH, xpath_checkbox))
                         )
                         checkbox.click()
-                        logging.info(f"'Seleccionar todos' aplicado correctamente para el complejo {grupo_complejo.iloc[0]['NOMBRE_COMPLEJO']}.")
+                        time.sleep(2)
+                        logging.info(f"'Seleccionar todos' aplicado correctamente para el complejo {nombre_complejo}.")
+                    except Exception as e:
+                           logging.error(f"Error al seleccionar el Checkbox: {str(e)}")
+                           df.at[index, 'Estado'] = f"Error al seleccionar el Checkbox: {str(e)}"  # Registrar el error en el DataFrame
+                           logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                           bandera=0
+                           continue  # Pasar al siguiente elemento del bucle    
 
-                        # Marcar todos los índices del grupo como procesados
-                        indices_procesados.update(grupo_complejo.index)
-                    else:
-                        # Selección del checkbox
-                        time.sleep(1)
-                        # Esperar a que el checkbox esté presente y seleccionarlo (reemplaza 'Autocine Mas SALA: 1' si es otro nombre)
-                        id_sala = str(id_sala)
-                        # Construir el XPath como una cadena
-                        xpath_checkbox = "//label[contains(text(), '" + grupo_complejo.iloc[0]['NOMBRE_COMPLEJO'] + " SALA: " + id_sala + "')]/preceding-sibling::input[@type='checkbox']"
+                    try:
+                        exito = asignar_fechas()
+                        if exito:
+                            exito = validar_asignacion_fechas()
+                            if not exito:
+                                refrescar_detalle_programacion()  
+                        if exito:
+                            exito = guardar_continuar()
+                        if exito:
+                            exito = validar_asignacion_fechas()
+                        if exito:
+                            exito = confimar()    
+                        if exito:
+                            exito = limpiar()
+                        
+                        if not exito:
+                            limpiar()
+                            refrescar_detalle_programacion()
+                            logging.error("Error en uno de los pasos del flujo de asignación de fechas.")
+                            logging.error("Error en uno de los pasos del flujo de guardar la programación.")
+                            df.at[index, 'Estado'] = "Error en el flujo de de guardar la programación"  # Registrar el error en el DataFrame
+                            continue  # Passar al siguiente elemento del bucle
+                    except Exception as e:
+                        limpiar()
+                        refrescar_detalle_programacion()
+                        logging.error(f"Excepción durante la ejecución del flujo de asignación de fechas: {str(e)}")
+                        df.at[index, 'Estado'] = f"Excepción en el flujo de asignación de fechas: {str(e)}"
+                        logging.info(f"Saltando al siguiente registro debido a una excepción en el índice {index}.")
+                        bandera = 0
+                        continue   
 
-                        # Imprimir el XPath para verificar cómo se ve
-                        logging.info(f"XPath construido: {xpath_checkbox}")
-                        checkbox = WebDriverWait(driver, 20).until(
-                            EC.element_to_be_clickable((By.XPATH, xpath_checkbox))
-                        )
-                        checkbox.click()
-                        logging.info("Checkbox seleccionado.")
-                except Exception as e:
-                    logging.error("Error en la selección de checkbox", e)
+                    # Marcar todos los índices del grupo como procesados
+                    indices_procesados.update(grupo_complejo.index)
+                    df.loc[grupo_complejo.index, 'Estado'] = "Insertado"
+                    
+                    
+                else:
+                    # Selección del checkbox
+                    #time.sleep(1)
+                    for idx in grupo_complejo.index:
+                        fila = df.loc[idx]  # Acceder a la fila por su índice original
+                        logging.info(f"Índice original: {idx}, Contenido de grupo_complejo: {fila['NOMBRE_COMPLEJO']}")
+                        id_complejo_actual = fila['ID_COMPLEJO']
+                        nombre_complejo_actual = fila['NOMBRE_COMPLEJO']
+                        id_sala_actual = fila['ID_SALA']
+                        fecha_exhi_inicial_actual = fila['FECHA_EXHI_INICIAL']  # Asegúrate de que esté en formato 'dd/mm/yyyy'
+                        fecha_exhi_final_actual = fila['FECHA_EXHI_FINAL']  # Asegúrate de que esté en formato 'dd/mm/yyyy'
+                        #df.loc[idx, 'Estado'] = nuevo_valor  # Actualizar el DataFrame original
 
-                # Hacer clic en "Asignar Fechas"
-                try:
-                    time.sleep(1)
-                    asignar_fechas_button = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnAgregarFechas"))
-                    )
-                    asignar_fechas_button.click()
-                    logging.info("Botón Asignar Fechas presionado.")
-                except Exception as e:
-                    logging.info("Asignación de fechas:", e)        
-                
-                # Hacer clic en "Guardar y continuar"
-                try:
-                    time.sleep(1)
-                    guardar_continuar_button = WebDriverWait(driver, 10).until(
-                        EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnGuardarDetProgramacion"))
-                    )
-                    guardar_continuar_button.click()
-                    logging.info("Botón Guardar y continuar presionado.")
-                    time.sleep(1)
-                    WebDriverWait(driver, 5).until(
-                        EC.element_to_be_clickable((By.CSS_SELECTOR, ".confirm"))
-                    ).click()
-                    logging.info("Programacion guardada")
-                except Exception as e:
-                    logging.info("Guardar programacion:", e)
-                
-                try:
-                    # Localizar el checkbox "Seleccionar todos"
-                    time.sleep(2)
-                    xpath_checkbox_select_all = "//input[@id='ContentPlaceHolder1_chkSeleccionarTodo' and @type='checkbox']"
-                    checkbox_select_all = WebDriverWait(driver, 10).until(
-                        EC.presence_of_element_located((By.XPATH, xpath_checkbox_select_all))
-                    )
-                    logging.info("'Seleccionar todos' está presente.")
+                        try:
+                            select_element = WebDriverWait(driver, 10).until(
+                                EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_cmbComplejo"))
+                            )
+                            select = Select(select_element)
+                            try:
+                                select.select_by_value(str(id_complejo_actual))  # Cambia id_complejo por el valor que corresponda si es necesario
+                                time.sleep(2)
+                                logging.info(f"Opción seleccionada por valor correctamente {id_complejo_actual} del exhibidor {id_exhibidor}...")
+                            except:
+                                logging.info(f"Seleccionando por texto visible: {nombre_complejo_actual}")
+                                select.select_by_visible_text(nombre_complejo_actual)
+                                time.sleep(2)
+                                logging.info("Opción seleccionada por texto visible correctamente.")
 
-                    # Verificar si el checkbox está marcado
-                    is_checked = driver.execute_script("return arguments[0].checked;", checkbox_select_all)
+                        except Exception as e:
+                            logging.error(f"Error al seleccionar la opción en el menú desplegable: {e}")
+                            logging.error(f"Error index {index} NO procesado - No Selecciono complejo .")
+                            df.at[index, 'Estado'] = f"Error index {index} NO procesado - No Selecciono complejo ."
+                            bandera = 0
+                            continue  # Pasa al siguiente registro en el bucle principal
 
-                    if is_checked:
-                        logging.info("El checkbox 'Seleccionar todos' está marcado. Procediendo a desmarcarlo.")
-                        checkbox_select_all.click()
-                        logging.info("Checkbox 'Seleccionar todos' ahora está desmarcado.")
-                    else:
-                        logging.info("El checkbox 'Seleccionar todos' ya estaba desmarcado.")
-                except Exception as e:
-                    logging.error(f"Error al verificar el estado de 'Seleccionar todos': {e}")
-                
-                df.at[index, 'Estado'] = "Insertado"
+                        # Ingresar la fecha en el campo de Fecha de Inicio
+                        #time.sleep(1)
+                        try:
+                            fecha_inicio_input = WebDriverWait(driver, 10).until(
+                                EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaInicio"))
+                            )
+                            fecha_inicio_input.clear()  # Limpia el campo antes de ingresar la fecha
+                            time.sleep(1)
+                            fecha_inicio_input.send_keys(fecha_exhi_inicial_actual.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
+                            fecha_inicio_input.send_keys(Keys.ENTER)
+                            logging.info("Fecha de inicio ingresada correctamente.")
+                        except Exception as e:
+                            logging.error(f"Error al ingresar la fecha de inicio: {str(e)}")
+                            df.at[index, 'Estado'] = f"Error al ingresar la fecha de inicio: {str(e)}"  # Registrar el error en el DataFrame
+                            logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                            bandera=0
+                            continue  # Pasar al siguiente elemento del bucle
 
+
+                        # Ingresar la fecha en el campo de Fecha de Fin
+                        #time.sleep(1)
+                        try:
+                            fecha_fin_input = WebDriverWait(driver, 10).until(
+                                EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaFin"))
+                            )
+                            fecha_fin_input.clear()  # Limpia el campo antes de ingresar la fecha
+                            time.sleep(1)
+                            fecha_fin_input.send_keys(fecha_exhi_final_actual.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
+                            fecha_fin_input.send_keys(Keys.ENTER)
+                            logging.info("Fecha de fin ingresada correctamente.")
+                        except Exception as e:
+                            logging.error(f"Error al ingresar la fecha final: {str(e)}")
+                            df.at[index, 'Estado'] = f"Error al ingresar la fecha final: {str(e)}"  # Registrar el error en el DataFrame
+                            logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                            bandera=0
+                            continue  # Pasar al siguiente elemento del bucle
+                        try:
+                            # Esperar a que el checkbox esté presente y seleccionarlo (reemplaza 'Autocine Mas SALA: 1' si es otro nombre)
+                            id_sala = str(id_sala_actual)
+                            # Construir el XPath como una cadena
+                            xpath_checkbox = "//label[contains(text(), '" + nombre_complejo_actual + " SALA: " + id_sala + "')]/preceding-sibling::input[@type='checkbox']"
+
+                            # Imprimir el XPath para verificar cómo se ve
+                            logging.info(f"XPath construido: {xpath_checkbox}")
+                            checkbox = WebDriverWait(driver, 20).until(
+                                EC.element_to_be_clickable((By.XPATH, xpath_checkbox))
+                            )
+                            checkbox.click()
+                            time.sleep(2)
+                            logging.info("Checkbox seleccionado.")
+                        except Exception as e:
+                            logging.error(f"Error al seleccionar el Checkbox: {str(e)}")
+                            df.at[index, 'Estado'] = f"Error al seleccionar el Checkbox: {str(e)}"  # Registrar el error en el DataFrame
+                            logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                            bandera=0
+                            continue  # Pasar al siguiente elemento del bucle    
+
+                        try:
+                            exito = asignar_fechas()
+                            if exito:
+                                exito = validar_asignacion_fechas()
+                                if not exito:
+                                    refrescar_detalle_programacion()
+                            if exito:
+                                exito = guardar_continuar()
+                            if exito:
+                                exito = validar_asignacion_fechas()
+                            if exito:
+                                exito = confimar()    
+                            if exito:
+                                exito = limpiar()
+                            
+                            if not exito:
+                                limpiar()
+                                refrescar_detalle_programacion()
+                                logging.error("Error en uno de los pasos del flujo de guardar la programación.")
+                                df.at[index, 'Estado'] = "Error en el flujo de de guardar la programación"  # Registrar el error en el DataFrame
+                                logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+                                bandera = 0
+                                continue  # Passar al siguiente elemento del bucle
+                        except Exception as e:
+                            limpiar()
+                            refrescar_detalle_programacion()
+                            logging.error(f"Excepción durante la ejecución del flujo de asignación de fechas: {str(e)}")
+                            df.at[index, 'Estado'] = f"Excepción en el flujo de asignación de fechas: {str(e)}"
+                            logging.info(f"Saltando al siguiente registro debido a una excepción en el índice {index}.")
+                            bandera = 0
+                            continue
+                        indices_procesados.add(idx)
+                        df.at[idx, 'Estado'] = "Insertado"
             # Marcar estado como Insertado
-            logging.info(f"Programación para {exhibidor} completada.")
-
+            if bandera == 1:
+                logging.info(f"Termino el proceso para el exhibidor: {exhibidor} - index final {index} Procesado .")
+                bandera = 0
+            else:
+                logging.error(f"Termino el proceso para el exhibidor: {exhibidor} - index {index} NO procesado - no tiene ID_COMPLEJO .")
             try:
                 # Espera a que el botón de "Cancelar" esté presente y sea clickeable
-                time.sleep(1)
                 cancelar_button = WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarDetProgramacionPopUp"))
                 )
+                time.sleep(1)
                 cancelar_button.click()
+                time.sleep(1)
                 logging.info("Botón 'Cancelar' presionado.")
             except Exception as e:
                 logging.error("Error al hacer clic en el botón 'Cancelar':", e)
 
             # Hacer clic en el enlace "Programación de Cortometrajes" con desplazamiento previo
-            time.sleep(1)
-            volver_a_programacion_cortometrajes()
-
-
+            #time.sleep(1)
         except Exception as e:
-            # Guardar el error en la columna Estado
-            df.at[index, 'Estado'] = f"Error: {str(e)}"
             logging.error(f"Error al procesar el exhibidor {exhibidor}: {e}")
-
-            # Hacer clic en el enlace "Programación de Cortometrajes" con desplazamiento previo
-            time.sleep(1)
-            volver_a_programacion_cortometrajes()
+            df.at[index, 'Estado'] = f"Error: {str(e)}"  # Registrar el error en el DataFrame
+            logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
+            continue  # Pasar al siguiente elemento del bucle
             
         # Espera antes de continuar con la siguiente fila (si es necesario)
-        time.sleep(1)
+        #time.sleep(1)
         # Calcular el tiempo que tardó la iteración
         end_time = time.time()
         duration = end_time - start_time
         df.at[index, 'Tiempo'] = duration
-        logging.info(f"Tiempo tomado para la fila {index + 1}: {duration:.2f} segundos")
+        logging.info(f"Tiempo tomado para la fila {index}: {duration:.2f} segundos")
 
     # Crear la ruta de salida con un nombre dinámico
     base_name, _ = os.path.splitext(file_path)
     output_path = f"{base_name}_Salida.xlsx"
     df.to_excel(output_path, index=False)
-
-    # Aquí va toda la lógica del script...
-    logging.info(f"Proceso completado. El archivo ha sido actualizado en {output_path}")
 
     # Cerrar el navegador
     driver.quit()
