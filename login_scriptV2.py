@@ -13,6 +13,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.common.keys import Keys
 from logging.handlers import RotatingFileHandler
+from selenium.common.exceptions import TimeoutException
 
 def refrescar_detalle_programacion():
     try:
@@ -226,26 +227,31 @@ if __name__ == "__main__":
     driver.get(url)
 
     # Tiempo de espera para que cargue la página
-    time.sleep(1)
+    #time.sleep(1)
 
-    # Localizar el campo de usuario y contraseña y enviar las credenciales
-    username_field = driver.find_element(By.ID, "txtUsuario")
-    password_field = driver.find_element(By.ID, "txtPassword")
+   # Configurar WebDriverWait
+    wait = WebDriverWait(driver, 20)  # Máximo 20 segundos de espera
+
+    # Esperar hasta que los campos estén presentes en el DOM
+    username_field = wait.until(EC.presence_of_element_located((By.ID, "txtUsuario")))
+    password_field = wait.until(EC.presence_of_element_located((By.ID, "txtPassword")))
 
     # Ingresar las credenciales
     username = "yrojas"  # Nombre de usuario
-    password = "Recaudo2019*"  # Contraseña
+    password = "Subrecaudo2024*"  # Contraseña
 
     username_field.send_keys(username)
     password_field.send_keys(password)
 
-    # Localizar y hacer clic en el botón de ingreso
-    login_button = driver.find_element(By.ID, "btnIngresar")
+    # Esperar hasta que el botón de ingreso sea clickeable
+    login_button = wait.until(EC.element_to_be_clickable((By.ID, "btnIngresar")))
+
+    # Hacer clic en el botón
     login_button.click()
 
     # Esperar a que el menú de "SIREC" esté presente y hacer clic para expandirlo
     try:
-        sirec_menu = WebDriverWait(driver, 20).until(
+        sirec_menu = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//div[contains(text(), 'SIREC')]"))
         )
         sirec_menu.click()
@@ -255,7 +261,7 @@ if __name__ == "__main__":
 
     # Hacer clic en la sección "Programación de Cortometrajes" para expandir su menú
     try:
-        programacion_menu = WebDriverWait(driver, 20).until(
+        programacion_menu = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//a[contains(text(), 'Programación de Cortometrajes')]"))
         )
         programacion_menu.click()
@@ -265,7 +271,7 @@ if __name__ == "__main__":
 
     # Hacer clic en el enlace "Programación de Cortometrajes" con desplazamiento previo
     try:
-        programacion_cortometrajes_link = WebDriverWait(driver, 20).until(
+        programacion_cortometrajes_link = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//a[@href='/frm/peliculas/frmLstPEL_ENC_PROGRAMACION_CORTOS.aspx']"))
         )
         driver.execute_script("arguments[0].scrollIntoView(true);", programacion_cortometrajes_link)
@@ -276,7 +282,7 @@ if __name__ == "__main__":
     # Intentar cargar el archivo
     try:
         logging.info(f"Cargando archivo: {file_path}, hoja: {sheet_name}")
-        df = pd.read_excel(file_path, sheet_name=sheet_name)
+        df = pd.read_excel(file_path, sheet_name=sheet_name, dtype={'ID_COMPLEJO': str})
         logging.info("Archivo y hoja cargados exitosamente.")
     except FileNotFoundError:
         logging.error(f"Error: No se encontró el archivo '{file_path}'.")
@@ -370,13 +376,13 @@ if __name__ == "__main__":
         try:
             # Buscar el campo de búsqueda para ingresar el nombre del exhibidor
             ##time.sleep(1)
-            search_field = WebDriverWait(driver, 20).until(
+            search_field = wait.until(
                 EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='Buscar']"))
             )
             search_field.send_keys(exhibidor)
 
             ##time.sleep(1)
-            tabla = WebDriverWait(driver, 10).until(
+            tabla = wait.until(
                 EC.presence_of_element_located((By.ID, "grdDatos"))
             )
 
@@ -393,35 +399,58 @@ if __name__ == "__main__":
             # Esperar y hacer clic en el botón "Editar"
             ##time.sleep(1)
             # Elimina los espacios en blanco al inicio y al final del nombre del exhibidor
-            exhibidor = exhibidor.strip()
+            try:
+                exhibidor = exhibidor.strip()
 
-            # Construir el XPath dinámico con el valor de 'exhibidor'
-            xpath_editar_button = "//tr[td[contains(text(), '" + exhibidor + "')]]//input[@value='Editar']"
+                # Construir el XPath dinámico con el valor de 'exhibidor'
+                # xpath_editar_button = f"//tr[td[text()='{id_complejo}'] or td[contains(text(), '{exhibidor}')]]//input[@type='submit' and @value='Editar']"
+                xpath_editar_button = f"//tr[td[text()='{id_exhibidor}'] or td[normalize-space(.)='{exhibidor}']]//input[@type='submit' and @value='Editar']"
 
-            # Imprimir el XPath construido para verificar
-            logging.info(f"XPath construido: {xpath_editar_button}")
 
-            editar_button = WebDriverWait(driver, 20).until(
-                EC.element_to_be_clickable((By.XPATH, "//tr[td[contains(text(), '" + exhibidor + "')]]//input[@value='Editar']"))
-            )
+                # Imprimir el XPath construido para verificar
+                logging.info(f"XPath construido: {xpath_editar_button}")
+
+                editar_button = wait.until(
+                    EC.element_to_be_clickable((By.XPATH, xpath_editar_button))
+                )
+            except TimeoutException:
+                # Si el botón no se encuentra, intenta con un espacio adicional al final
+                logging.warning("No se encontró el elemento con XPath original. Intentando con un espacio adicional...")
+
+                # Agregar un espacio al final de la variable exhibidor
+                exhibidor_con_espacio = exhibidor + " "
+                # xpath_editar_button = f"//tr[td[text()='{id_complejo}'] or td[contains(text(), '{exhibidor_con_espacio}')]]//input[@type='submit' and @value='Editar']"
+                xpath_editar_button = f"//tr[td[text()='{id_exhibidor}'] or td[normalize-space(.)='{exhibidor}']]//input[@type='submit' and @value='Editar']"
+
+                # Imprimir el XPath modificado para verificar
+                logging.info(f"Intentando con XPath modificado: {xpath_editar_button}")
+
+                # Volver a intentar encontrar y hacer clic en el botón "Editar"
+                editar_button = WebDriverWait(driver, 5).until(
+                    EC.element_to_be_clickable((By.XPATH, xpath_editar_button))
+                )
+
+            # Si se encuentra el elemento, hacer scroll y clic
             driver.execute_script("arguments[0].scrollIntoView(true);", editar_button)
             editar_button.click()
+            logging.info("Botón 'Editar' clickeado exitosamente.")
 
             # Navegar a Datos Programación
             #time.sleep(1)
-            WebDriverWait(driver, 10).until(
+            wait.until(
                 EC.element_to_be_clickable((By.LINK_TEXT, "Datos Programación"))
             ).click()
             logging.info("Navegando a Datos Programación")
 
             #time.sleep(1)
-            driver.find_element(By.ID, "ContentPlaceHolder1_btnCrearProgramacion").click()
+            crear_programacion_button = wait.until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCrearProgramacion")))
+            crear_programacion_button.click()
             logging.info("Botón Crear Programación presionado")
 
             # Ingresar el número de acta
             #time.sleep(1)
             numero_acta = str(numero_acta)
-            acta_field = driver.find_element(By.ID, "ContentPlaceHolder1_txtNroActa")
+            acta_field = wait.until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtNroActa")))
             acta_field.send_keys("00"+numero_acta)
             # Simular Enter para mover el foco
             acta_field.send_keys(Keys.ENTER)
@@ -431,12 +460,12 @@ if __name__ == "__main__":
 
             elementos = driver.find_elements(By.ID, "ContentPlaceHolder1_lblErrorTab_2")
             if elementos and elementos[0].is_displayed():
-                error_message_element = WebDriverWait(driver, 5).until(
+                error_message_element = wait.until(
                     EC.visibility_of_element_located((By.ID, "ContentPlaceHolder1_lblErrorTab_2"))
                 )
                 error_message = error_message_element.text
                 if "No existe pelicula para esa acta" in error_message:
-                    cancelar_button = WebDriverWait(driver, 5).until(
+                    cancelar_button = wait.until(
                         EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
                     )
                     cancelar_button.click()
@@ -511,28 +540,33 @@ if __name__ == "__main__":
                 volver_a_programacion_cortometrajes()
                 continue  # Pasa al siguiente registro en el bucle principal
 
-            try:
-                # Localizar el campo de entrada por su ID y enviar el valor "00"+numero_acta
-                nro_acta_field = WebDriverWait(driver, 10).until(
-                    EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_grdDatosProgramacion_DXFREditorcol0_I"))
-                )
-                nro_acta_field.clear()  # Opcional: Limpia el campo antes de escribir
-                nro_acta_field.send_keys("00"+numero_acta)
-                logging.info("Número de acta ingresado correctamente en el campo de programación.")
-            except Exception as e:
-                logging.error("Error al ingresar el número de acta:", e)
+            # try:
+            #     # Localizar el campo de entrada por su ID y enviar el valor "00"+numero_acta
+            #     nro_acta_field = WebDriverWait(driver, 10).until(
+            #         EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_grdDatosProgramacion_DXFREditorcol0_I"))
+            #     )
+            #     nro_acta_field.clear()  # Opcional: Limpia el campo antes de escribir
+            #     nro_acta_field.send_keys("00"+numero_acta)
+            #     logging.info("Número de acta ingresado correctamente en el campo de programación.")
+            # except Exception as e:
+            #     logging.error("Error al ingresar el número de acta:", e)
 
             try:
                 # Espera adicional para asegurar que el botón esté cargado
                 time.sleep(2)
+                numero_acta_f="00"+numero_acta
+
+                # XPath para ubicar el botón "Crear detalle" dentro de la fila que contiene "00"+numero_acta
+                xpath_boton = f"//tr[td[text()='{numero_acta_f}']]//input[@type='submit' and @value='Crear detalle']"
                 
-                # Desplazar a la vista y hacer clic en el botón "Crear detalle" por su ID
-                crear_detalle_button = WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_grdDatosProgramacion_cell0_7_btnNuevoDetProgramacion_0"))
-                )
-                driver.execute_script("arguments[0].scrollIntoView(true);", crear_detalle_button)
-                WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_grdDatosProgramacion_cell0_7_btnNuevoDetProgramacion_0"))).click()
+               # Esperar a que el botón esté presente en la página
+                boton_crear_detalle =  WebDriverWait(driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, xpath_boton)))
+
+                # Hacer clic en el botón
+                boton_crear_detalle.click()
                 logging.info("Botón 'Crear detalle' presionado exitosamente.")
+
             except Exception as e:
                 logging.error("Error al hacer clic en el botón 'Crear detalle':", e)        
 
