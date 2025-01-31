@@ -69,19 +69,21 @@ def volver_a_programacion_cortometrajes():
 
 def validar_asignacion_fechas():
     try:
-        error_message_element = WebDriverWait(driver, 5).until(
+        error_message_element = WebDriverWait(driver, 1).until(
         EC.visibility_of_element_located((By.ID, "ContentPlaceHolder1_lblErrorTab_3"))
         )
         error_message = error_message_element.text
         if "No puede cargar fecha de inicio y fin por fuera del rango del mes y año de beneficio" in error_message:
-            return False
+            return False, error_message
         elif "La fecha final no puede ser menor de 8 dias continuos"  in error_message:   
-            return False
+            return False, error_message
+        elif "Sala" in error_message and "El número de días consecutivos" in error_message:
+            return False, error_message  # Captura el error con valores dinámicos
         else:
             return True    
     except Exception as e:
         logging.info("Botón Asignar Fechas presionado.")
-        return True
+        return True, "Botón Asignar Fechas presionado."
 
 def limpiar():
     try:
@@ -147,7 +149,7 @@ def asignar_fechas():
             EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnAgregarFechas"))
         )
         asignar_fechas_button.click()
-        time.sleep(2)
+        time.sleep(0.5)
         logging.info("Botón Asignar Fechas presionado.")
         return True
     except Exception as e:
@@ -161,7 +163,7 @@ def guardar_continuar():
             EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnGuardarDetProgramacion"))
         )
         guardar_continuar_button.click()
-        time.sleep(2)
+        #time.sleep(2)
         logging.info("Botón Guardar y continuar presionado.")
         return True
     except Exception as e:
@@ -173,7 +175,7 @@ def confimar():
         WebDriverWait(driver, 5).until(
                 EC.element_to_be_clickable((By.CSS_SELECTOR, ".confirm"))
             ).click()
-        time.sleep(2)
+        #time.sleep(2)
         logging.info("Programacion guardada")
         return True        
     except Exception as e:
@@ -375,11 +377,14 @@ if __name__ == "__main__":
 
         try:
             # Buscar el campo de búsqueda para ingresar el nombre del exhibidor
-            ##time.sleep(1)
+            #time.sleep(1)
+            volver_a_programacion_cortometrajes()
             search_field = wait.until(
                 EC.element_to_be_clickable((By.XPATH, "//input[@placeholder='Buscar']"))
             )
-            search_field.send_keys(exhibidor)
+            #search_field.send_keys(exhibidor)
+            # búsca por el ID de la programacion asignada al exhibidor
+            search_field.send_keys(id_exhibidor)
 
             ##time.sleep(1)
             tabla = wait.until(
@@ -448,14 +453,14 @@ if __name__ == "__main__":
             logging.info("Botón Crear Programación presionado")
 
             # Ingresar el número de acta
-            #time.sleep(1)
+            time.sleep(1)
             numero_acta = str(numero_acta)
             acta_field = wait.until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtNroActa")))
             acta_field.send_keys("00"+numero_acta)
             # Simular Enter para mover el foco
             acta_field.send_keys(Keys.ENTER)
             logging.info(f"Número de acta ingresado: 00{numero_acta}")
-            #time.sleep(1)
+            time.sleep(1)
             # Esperar si el elemento de error aparece
 
             elementos = driver.find_elements(By.ID, "ContentPlaceHolder1_lblErrorTab_2")
@@ -486,7 +491,7 @@ if __name__ == "__main__":
             dropdown_mes.find_element(By.XPATH, "//option[. = '" + mes_beneficio + "']").click()
             logging.info("Mes de beneficio seleccionado")
             
-            #time.sleep(1)
+            time.sleep(1)
             driver.find_element(By.ID, "ContentPlaceHolder1_btnGuardarYsalir").click()
             logging.info("Botón Guardar y salir presionado")
 
@@ -498,11 +503,11 @@ if __name__ == "__main__":
                 if elementos:
                     # Si la lista no está vacía, significa que el elemento está presente
                     logging.info("Cargue de acta exitoso")
-                    WebDriverWait(driver, 5).until(
+                    wait.until(
                         EC.element_to_be_clickable((By.CSS_SELECTOR, ".confirm"))
                     ).click()
                 else:
-                    error_message_element = WebDriverWait(driver, 5).until(
+                    error_message_element = wait.until(
                     EC.visibility_of_element_located((By.ID, "ContentPlaceHolder1_lblErrorProgramacion"))
                     )
                     error_message = error_message_element.text
@@ -515,7 +520,7 @@ if __name__ == "__main__":
                         df.at[index, 'Estado'] = f"Error: {error_message}"
                         continue  # Pasa al siguiente registro en el bucle principal
                     if "Debe seleccionar un mes de beneficio" in error_message:
-                        cancelar_button = WebDriverWait(driver, 5).until(
+                        cancelar_button = wait.until(
                             EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
                         )
                         cancelar_button.click()
@@ -523,7 +528,7 @@ if __name__ == "__main__":
                         df.at[index, 'Estado'] = f"Error: {error_message}"
                         continue  # Pasa al siguiente registro en el bucle principal
                     if "Solo puede crear una programación por periodo" in error_message:
-                        cancelar_button = WebDriverWait(driver, 5).until(
+                        cancelar_button = wait.until(
                             EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarProgramacionPopUp"))
                         )
                         cancelar_button.click()
@@ -553,14 +558,14 @@ if __name__ == "__main__":
 
             try:
                 # Espera adicional para asegurar que el botón esté cargado
-                time.sleep(2)
+                #time.sleep(2)
                 numero_acta_f="00"+numero_acta
 
                 # XPath para ubicar el botón "Crear detalle" dentro de la fila que contiene "00"+numero_acta
                 xpath_boton = f"//tr[td[text()='{numero_acta_f}']]//input[@type='submit' and @value='Crear detalle']"
                 
                # Esperar a que el botón esté presente en la página
-                boton_crear_detalle =  WebDriverWait(driver, 10).until(
+                boton_crear_detalle =  wait.until(
                     EC.element_to_be_clickable((By.XPATH, xpath_boton)))
 
                 # Hacer clic en el botón
@@ -570,7 +575,7 @@ if __name__ == "__main__":
             except Exception as e:
                 logging.error("Error al hacer clic en el botón 'Crear detalle':", e)        
 
-            bandera = 0
+            bandera = 1
             # Agrupar por ID_EXHIBIDOR y luego iterar por cada ID_COMPLEJO asociado
             grupo_exhibidor = df[df['ID_EXHIBIDOR'] == id_exhibidor]  # Filtrar el grupo del exhibidor actual
             logging.info(f"Contenido de grupo_exhibidor ordenado por 'ITEM':\n{grupo_exhibidor[['NOMBRE_COMPLEJO']]}")
@@ -617,12 +622,13 @@ if __name__ == "__main__":
                         continue  # Pasa al siguiente registro en el bucle principal
 
                     # Ingresar la fecha en el campo de Fecha de Inicio
+                    time.sleep(1)
                     try:
                         fecha_inicio_input = WebDriverWait(driver, 10).until(
                             EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaInicio"))
                         )
                         fecha_inicio_input.clear()  # Limpia el campo antes de ingresar la fecha
-                        time.sleep(1)
+                        #time.sleep(1)
                         fecha_inicio_input.send_keys(fecha_exhi_inicial.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
                         fecha_inicio_input.send_keys(Keys.ENTER)
                         logging.info("Fecha de inicio ingresada correctamente.")
@@ -635,13 +641,13 @@ if __name__ == "__main__":
 
 
                     # Ingresar la fecha en el campo de Fecha de Fin
-                    #time.sleep(1)
+                    time.sleep(1)
                     try:
                         fecha_fin_input = WebDriverWait(driver, 10).until(
                             EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaFin"))
                         )
                         fecha_fin_input.clear()  # Limpia el campo antes de ingresar la fecha
-                        time.sleep(1)
+                        #time.sleep(1)
                         fecha_fin_input.send_keys(fecha_exhi_final.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
                         fecha_fin_input.send_keys(Keys.ENTER)
                         logging.info("Fecha de fin ingresada correctamente.")
@@ -661,7 +667,7 @@ if __name__ == "__main__":
                             EC.element_to_be_clickable((By.XPATH, xpath_checkbox))
                         )
                         checkbox.click()
-                        time.sleep(2)
+                        time.sleep(1)
                         logging.info(f"'Seleccionar todos' aplicado correctamente para el complejo {nombre_complejo}.")
                     except Exception as e:
                            logging.error(f"Error al seleccionar el Checkbox: {str(e)}")
@@ -673,13 +679,13 @@ if __name__ == "__main__":
                     try:
                         exito = asignar_fechas()
                         if exito:
-                            exito = validar_asignacion_fechas()
+                            exito, mensaje = validar_asignacion_fechas()
                             if not exito:
                                 refrescar_detalle_programacion()  
                         if exito:
                             exito = guardar_continuar()
                         if exito:
-                            exito = validar_asignacion_fechas()
+                            exito, mensaje = validar_asignacion_fechas()
                         if exito:
                             exito = confimar()    
                         if exito:
@@ -690,7 +696,7 @@ if __name__ == "__main__":
                             refrescar_detalle_programacion()
                             logging.error("Error en uno de los pasos del flujo de asignación de fechas.")
                             logging.error("Error en uno de los pasos del flujo de guardar la programación.")
-                            df.at[index, 'Estado'] = "Error en el flujo de de guardar la programación"  # Registrar el error en el DataFrame
+                            df.at[index, 'Estado'] = "Error :" + str(mensaje)  # Registrar el error en el DataFrame
                             continue  # Passar al siguiente elemento del bucle
                     except Exception as e:
                         limpiar()
@@ -720,13 +726,13 @@ if __name__ == "__main__":
                         #df.loc[idx, 'Estado'] = nuevo_valor  # Actualizar el DataFrame original
 
                         try:
-                            select_element = WebDriverWait(driver, 10).until(
+                            select_element = wait.until(
                                 EC.presence_of_element_located((By.ID, "ContentPlaceHolder1_cmbComplejo"))
                             )
                             select = Select(select_element)
                             try:
                                 select.select_by_value(str(id_complejo_actual))  # Cambia id_complejo por el valor que corresponda si es necesario
-                                time.sleep(2)
+                                #time.sleep(2)
                                 logging.info(f"Opción seleccionada por valor correctamente {id_complejo_actual} del exhibidor {id_exhibidor}...")
                             except:
                                 logging.info(f"Seleccionando por texto visible: {nombre_complejo_actual}")
@@ -742,13 +748,13 @@ if __name__ == "__main__":
                             continue  # Pasa al siguiente registro en el bucle principal
 
                         # Ingresar la fecha en el campo de Fecha de Inicio
-                        #time.sleep(1)
+                        time.sleep(1)
                         try:
-                            fecha_inicio_input = WebDriverWait(driver, 10).until(
+                            fecha_inicio_input = wait.until(
                                 EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaInicio"))
                             )
                             fecha_inicio_input.clear()  # Limpia el campo antes de ingresar la fecha
-                            time.sleep(1)
+                            #time.sleep(1)
                             fecha_inicio_input.send_keys(fecha_exhi_inicial_actual.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
                             fecha_inicio_input.send_keys(Keys.ENTER)
                             logging.info("Fecha de inicio ingresada correctamente.")
@@ -761,13 +767,13 @@ if __name__ == "__main__":
 
 
                         # Ingresar la fecha en el campo de Fecha de Fin
-                        #time.sleep(1)
+                        time.sleep(1)
                         try:
-                            fecha_fin_input = WebDriverWait(driver, 10).until(
+                            fecha_fin_input = wait.until(
                                 EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_txtFechaFin"))
                             )
                             fecha_fin_input.clear()  # Limpia el campo antes de ingresar la fecha
-                            time.sleep(1)
+                            #time.sleep(1)
                             fecha_fin_input.send_keys(fecha_exhi_final_actual.strftime("%d/%m/%Y"))  # Ingresa la fecha en formato 'dd/mm/yyyy'
                             fecha_fin_input.send_keys(Keys.ENTER)
                             logging.info("Fecha de fin ingresada correctamente.")
@@ -785,11 +791,11 @@ if __name__ == "__main__":
 
                             # Imprimir el XPath para verificar cómo se ve
                             logging.info(f"XPath construido: {xpath_checkbox}")
-                            checkbox = WebDriverWait(driver, 20).until(
+                            checkbox = wait.until(
                                 EC.element_to_be_clickable((By.XPATH, xpath_checkbox))
                             )
                             checkbox.click()
-                            time.sleep(2)
+                            #time.sleep(2)
                             logging.info("Checkbox seleccionado.")
                         except Exception as e:
                             logging.error(f"Error al seleccionar el Checkbox: {str(e)}")
@@ -801,13 +807,13 @@ if __name__ == "__main__":
                         try:
                             exito = asignar_fechas()
                             if exito:
-                                exito = validar_asignacion_fechas()
+                                exito, mensaje = validar_asignacion_fechas()
                                 if not exito:
                                     refrescar_detalle_programacion()
                             if exito:
                                 exito = guardar_continuar()
                             if exito:
-                                exito = validar_asignacion_fechas()
+                                exito, mensaje = validar_asignacion_fechas()
                             if exito:
                                 exito = confimar()    
                             if exito:
@@ -817,7 +823,8 @@ if __name__ == "__main__":
                                 limpiar()
                                 refrescar_detalle_programacion()
                                 logging.error("Error en uno de los pasos del flujo de guardar la programación.")
-                                df.at[index, 'Estado'] = "Error en el flujo de de guardar la programación"  # Registrar el error en el DataFrame
+                                df.at[index, 'Estado'] = "Error: " + str(mensaje)
+                                
                                 logging.info(f"Saltando al siguiente registro debido a un error en el índice {index}.")
                                 bandera = 0
                                 continue  # Passar al siguiente elemento del bucle
@@ -842,9 +849,9 @@ if __name__ == "__main__":
                 cancelar_button = WebDriverWait(driver, 10).until(
                     EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_btnCancelarDetProgramacionPopUp"))
                 )
-                time.sleep(1)
+                #time.sleep(1)
                 cancelar_button.click()
-                time.sleep(1)
+                #time.sleep(1)
                 logging.info("Botón 'Cancelar' presionado.")
             except Exception as e:
                 logging.error("Error al hacer clic en el botón 'Cancelar':", e)
