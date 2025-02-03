@@ -7,6 +7,7 @@ import logging
 import traceback
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -217,16 +218,30 @@ if __name__ == "__main__":
     TIMEOUT = 20  # Tiempo máximo de espera en segundos
     service = Service(DRIVER_PATH)
 
+    # Configurar opciones del navegador
+    chrome_options = Options()
+    chrome_options.add_argument("--start-maximized")  # Maximiza la ventana
+    chrome_options.add_argument("--force-device-scale-factor=0.6")  # Intenta cambiar el zoom
+    chrome_options.add_argument("--high-dpi-support=0.6")  # Compatibilidad con DPI
+
     # Inicializa el controlador con el servicio configurado
     try:
-        driver = webdriver.Chrome(service=service)
+        # Iniciar el navegador con opciones
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+
+        # Asegurar maximización si el argumento no funcionó
+        driver.maximize_window()
+
+        # Cambiar el zoom al 60% usando JavaScript
+        driver.execute_script("document.body.style.zoom='60%'")
+
+        # Abrir la URL
+        url = "https://sirec.gov.co/frm/seguridad/frmLogin.aspx"
+        driver.get(url)
+
     except Exception as e:
         logging.error(f"Error al iniciar el navegador: {e}")
         sys.exit(1)
-
-    # URL de la página de inicio de sesión
-    url = "https://sirec.gov.co/frm/seguridad/frmLogin.aspx"
-    driver.get(url)
 
     # Tiempo de espera para que cargue la página
     #time.sleep(1)
@@ -563,6 +578,12 @@ if __name__ == "__main__":
 
                 # XPath para ubicar el botón "Crear detalle" dentro de la fila que contiene "00"+numero_acta
                 xpath_boton = f"//tr[td[text()='{numero_acta_f}']]//input[@type='submit' and @value='Crear detalle']"
+
+                 # Imprimir el XPath construido para verificar
+                logging.info(f"XPath construido: {xpath_boton}")
+
+                # Desplaza hasta el botón
+                # driver.execute_script("arguments[0].scrollIntoView();", xpath_boton)
                 
                # Esperar a que el botón esté presente en la página
                 boton_crear_detalle =  wait.until(
